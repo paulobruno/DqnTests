@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+
+# Temp files
+*~
+
+# Commit file
+[Nn]otes.txt
+[Cc]ommit[Mm]essage*
+[Cc]ommit[Mm]sg*
+[Cc]ommit[-_][Mm]essage*
+[Cc]ommit[-_][Mm]sg*
