@@ -246,6 +246,7 @@ if __name__ == '__main__':
     actions = [list(a) for a in it.product([0, 1], repeat=num_actions)]
 
     memory = ReplayMemory(capacity=replay_memory_size)
+    writer = tf.summary.create_file_writer('tensorboard')
 
     
     # load or create new model
@@ -282,71 +283,85 @@ if __name__ == '__main__':
 
     # training
     time_start = time()
-    
-    for epoch in range(args.num_epochs):
-        print("\nEpoch %d\n-------" % (epoch + 1))
-        
-        train_scores = []
+
+    with writer.as_default():
+        with tf.summary.record_if(True):
+            for epoch in range(args.num_epochs):
+                print("\nEpoch %d\n-------" % (epoch + 1))
 
 
-        print("Training...")
-        start_time = time()
-        
-        for episode in trange(episodes_per_epoch, leave=False):
-            game.new_episode()
-            
-            while not game.is_episode_finished():
-                perform_learning_step(model, epoch)
-        
-            score = game.get_total_reward()
-            train_scores.append(score)
-            
-        # in seconds
-        train_elapsed_time = time() - start_time
 
-        train_scores = np.array(train_scores)
-
-        print("Results: mean: %.1f±%.1f," %(train_scores.mean(), train_scores.std()), \
-                "min: %.1f," %train_scores.min(), "max: %.1f," %train_scores.max())
-                
-        # save model
-        if (args.save_model and ((epoch+1) % args.save_model_interval == 0)):
-            print("Saving model to folder", args.model_folder)
-            model.save(args.model_folder)
+                train_scores = []
 
 
-        print("\nTesting...")
-        test_scores = []
-        
-        start_time = time()
-        
-        for test_episode in trange(test_episodes_per_epoch, leave=False):
-            game.set_seed(test_maps.TEST_MAPS[test_episode])
-            game.new_episode()
-            
-            while not game.is_episode_finished():
-                state = preprocess(game.get_state().screen_buffer)
-                best_action_index = get_best_action(model, state)
-                game.make_action(actions[best_action_index], frame_repeat)
-                
-            r = game.get_total_reward()
-            test_scores.append(r)
+                print("Training...")
+                start_time = time()
 
-        # in seconds
-        test_elapsed_time = time() - start_time
-        
-        test_scores = np.array(test_scores)
-        
-        print("Results: mean: %.1f±%.1f," % (test_scores.mean(), test_scores.std()), \
-                "min: %.1f" % test_scores.min(), "max: %.1f" % test_scores.max())
-        
-        if args.log_file:
-            print("{:.2f},{},{},{},{:.2f},{:.2f},{},{},{},{:.2f}".format(
-                train_elapsed_time, train_scores.min(), train_scores.max(), train_scores.mean(), train_scores.std(),
-                test_elapsed_time, test_scores.min(), test_scores.max(), test_scores.mean(), test_scores.std()),
-                file=log_file)
+                for episode in  trange(episodes_per_epoch, leave=False):
+                    game.new_episode()
 
-        print("Total elapsed time: %.2f minutes" % ((time() - time_start) / 60.0))
+                    while not game.is_episode_finished():
+                        perform_learning_step(model, epoch)
+
+                    score = game.get_total_reward()
+                    tf.summary.scalar('train_episore_score', score, step=episode)
+                    train_scores.append(score)
+
+                # in seconds
+                train_elapsed_time = time() - start_time
+
+                train_scores = np.array(train_scores)
+                tf.summary.scalar('train_score_mean', train_scores.mean(), step=epoch)
+                tf.summary.scalar('train_score_std', train_scores.std(), step=epoch)
+                tf.summary.scalar('train_score_min', train_scores.min(), step=epoch)
+                tf.summary.scalar('train_score_max', train_scores.max(), step=epoch)
+
+                print("Results: mean: %.1f±%.1f," %(train_scores.mean(), train_scores.std()), \
+                        "min: %.1f," %train_scores.min(), "max: %.1f," %train_scores.max())
+
+                # save model
+                if (args.save_model and ((epoch+1) % args.save_model_interval == 0)):
+                    print("Saving model to folder", args.model_folder)
+                    model.save(args.model_folder)
+
+
+                print("\nTesting...")
+                test_scores = []
+
+                start_time = time()
+
+                for test_episode in trange(test_episodes_per_epoch, leave=False):
+                    game.set_seed(test_maps.TEST_MAPS[test_episode])
+                    game.new_episode()
+
+                    while not game.is_episode_finished():
+                        state = preprocess(game.get_state().screen_buffer)
+                        best_action_index = get_best_action(model, state)
+                        game.make_action(actions[best_action_index], frame_repeat)
+
+                    r = game.get_total_reward()
+                    tf.summary.scalar('test_episore_score', r, step=test_episode)
+                    test_scores.append(r)
+
+                # in seconds
+                test_elapsed_time = time() - start_time
+
+                test_scores = np.array(test_scores)
+                tf.summary.scalar('test_score_mean', test_scores.mean(), step=epoch)
+                tf.summary.scalar('test_score_std', test_scores.std(), step=epoch)
+                tf.summary.scalar('test_score_min', test_scores.min(), step=epoch)
+                tf.summary.scalar('test_score_max', test_scores.max(), step=epoch)
+
+                print("Results: mean: %.1f±%.1f," % (test_scores.mean(), test_scores.std()), \
+                        "min: %.1f" % test_scores.min(), "max: %.1f" % test_scores.max())
+
+                if args.log_file:
+                    print("{:.2f},{},{},{},{:.2f},{:.2f},{},{},{},{:.2f}".format(
+                        train_elapsed_time, train_scores.min(), train_scores.max(), train_scores.mean(), train_scores.std(),
+                        test_elapsed_time, test_scores.min(), test_scores.max(), test_scores.mean(), test_scores.std()),
+                        file=log_file)
+
+                print("Total elapsed time: %.2f minutes" % ((time() - time_start) / 60.0))
 
 
     print("======================================")

@@ -6,3 +6,8 @@
 ```
 python3 dqn.py scenarios/basic/basic.cfg -e 1 -log temp.txt
 ```
+
+Para visualizar as métricas usando tensorboard, rode na pasta raiz do projeto: 
+```
+tensorboard --logdir tensorboard
+```
