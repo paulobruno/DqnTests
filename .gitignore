@@ -1,8 +1,13 @@
 # Python
 __pycache__/
 
+# ViZDoom
+_vizdoom.ini
+
 # Temp files
 *~
+Temp*
+temp*
 
 # Commit file
 [Nn]otes.txt
