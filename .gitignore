@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.idea
 
 # Temp files
 *~
@@ -10,3 +11,10 @@ __pycache__/
 [Cc]ommit[Mm]sg*
 [Cc]ommit[-_][Mm]essage*
 [Cc]ommit[-_][Mm]sg*
+
+# Log files
+_vizdoom.ini
+temp.txt
+temp_log_file.txt
+
+tensorboard/
