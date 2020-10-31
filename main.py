@@ -106,7 +106,8 @@ if __name__ == '__main__':
 
     # create vizdoom game
     game = initialize_vizdoom(args)
-    agent = Agent(num_epochs=args.num_epochs, batch_size=batch_size, game=game, resolution=resolution, replay_memory_size=replay_memory_size)
+    agent = Agent(num_epochs=args.num_epochs, batch_size=batch_size, game=game, resolution=resolution,
+                  should_save_model=args.save_model, replay_memory_size=replay_memory_size)
 
 
     
@@ -141,8 +142,7 @@ if __name__ == '__main__':
         print("Training time,Training min,Training max,Training mean,Training std,Testing time,Testing min,Testing max,Testing mean,Testing std", file=log_file)
         
 
-
-    agent.run()
+    agent.run(args.save_model_interval, args.model_folder)
 
 
     # close file with results
