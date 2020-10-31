@@ -4,15 +4,15 @@ from tensorflow.keras import layers
 import numpy as np
 
 
-class DQN(keras.Model):
+class Dueling_DQN(keras.Model):
 
-    def __init__(self, input_dim, output_dim, action_size):
-        super(DQN, self).__init__()
+    def __init__(self, input_dim, output_dim):
+        super(Dueling_DQN, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.model = self._create_network()
         self.discount_factor = 0.99
-        self.action_size = action_size
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
 
     def load(self, model_folder):
         self.model = keras.models.load_model(model_folder)
@@ -38,7 +38,7 @@ class DQN(keras.Model):
         # Calcular advantage
         advantage = layers.Dense(512, kernel_initializer='glorot_normal', bias_initializer=tf.constant_initializer(0.1),
                              activation='relu')(flatten)
-        advantage = layers.Dense(self.action_size, kernel_initializer='glorot_normal', bias_initializer=tf.constant_initializer(0.1))(
+        advantage = layers.Dense(self.output_dim, kernel_initializer='glorot_normal', bias_initializer=tf.constant_initializer(0.1))(
             advantage)
 
         # Agregating layer
@@ -57,12 +57,25 @@ class DQN(keras.Model):
     def train_step(self, memory):
         batch_size = 32
         s1, a, s2, isterminal, r = memory.get_sample(batch_size)
+        return self.computer_loss(s1, a, s2, isterminal, r)
 
-        q2 = np.max(self.model.predict(s2), axis=1)
-        target_q = self.model.predict(s1)
 
-        target_q[np.arange(target_q.shape[0]), a] = r + self.discount_factor * (1 - isterminal) * q2
-        loss = self.model.train_on_batch(x=s1, y=target_q)
+    def computer_loss(self, s1, a, s2, isterminal, r):
+        with tf.GradientTape() as tape:
+            target_q = self.model(s1)
+            next_q_values = np.max(self.model(s2), axis=1)
+
+            action_q_values = tf.reduce_sum(tf.multiply(tf.one_hot(a, 8), target_q), axis=1)
+            next_state_values_target = tf.reduce_max(next_q_values, axis=-1)
+
+            # target_q[np.arange(target_q.shape[0]), a] = r + self.discount_factor * (1 - isterminal) * next_state_values_target
+            reference_q = r + self.discount_factor * (1 - isterminal) * next_state_values_target
+            absolute_errors = (action_q_values - reference_q)**2
+            loss = tf.reduce_mean(absolute_errors)
+
+
+        grads = tape.gradient(loss, self.weights)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         return loss
 
     def get_single_best_action(self, state):
@@ -73,24 +86,23 @@ class DQN(keras.Model):
         s = state.reshape([batch, self.input_dim[0], self.input_dim[1], 1])
         return tf.argmax(self.model.predict(s), axis=1)
 
-    @tf.function
-    def compute_loss(self, state, target_Q):
-        output = self.model.predict(state)
-
-        Q = tf.reduce_sum(tf.multiply(output, actions_), axis=1)
-        absolute_errors = tf.abs(target_Q - Q)  # for updating Sumtree
-        loss = tf.reduce_mean(self.model.trainable_weights * tf.squared_difference(target_Q, Q))
-        return loss, absolute_errors
-
-    @tf.function
-    def run_train(self, state, target_Q,  optimizer):
-        # if isinstance(data, tuple):
-        #     data = data[0]
-        with tf.GradientTape() as tape:
-            loss, absolute_errors = self.compute_loss(state, target_Q)
-
-        grads = tape.gradient(loss, self.trainable_weights)
-        optimizer.apply_gradients(zip(grads, self.trainable_weights))
-        # print("Train loss: {}".format(kl_loss))
-
+    # @tf.function
+    # def compute_loss(self, state, actions, target_Q):
+    #     q_values = self.model.predict(state)
+    #
+    #     action_q_values = tf.reduce_sum(tf.multiply(q_values, actions), axis=1)
+    #     absolute_errors = tf.abs(target_Q - action_q_values)  # for updating Sumtree
+    #     loss = tf.reduce_mean(self.model.trainable_weights * tf.squared_difference(target_Q, Q))
+    #     return loss, absolute_errors
+    #
+    # @tf.function
+    # def run_train(self, state, target_Q):
+    #     # if isinstance(data, tuple):
+    #     #     data = data[0]
+    #     with tf.GradientTape() as tape:
+    #         loss, absolute_errors = self.compute_loss(state, target_Q)
+    #
+    #     grads = tape.gradient(loss, self.trainable_weights)
+    #     self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+    #     return loss
 

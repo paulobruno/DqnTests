@@ -6,7 +6,8 @@ from cv2 import resize
 from time import sleep
 from utils.decorator import timeit
 
-from network.dqn import DQN
+from network.dueling_dqn import Dueling_DQN as model
+#from network.dqn import DQN as model
 from network.relay_memory import ReplayMemory
 import tensorflow as tf
 from tqdm import trange
@@ -33,7 +34,7 @@ class Agent:
         self.episodes_to_watch = episodes_to_watch
 
         input_shape = (resolution[0], resolution[1], self.channel)
-        self.dqn = DQN(input_shape, len(self.actions))
+        self.dqn = model(input_shape, len(self.actions))
 
         state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
         self.memory = ReplayMemory(state_shape)
@@ -69,7 +70,6 @@ class Agent:
             # Choose the best action according to the network.
             return self.dqn.get_best_action(state)
 
-    @timeit
     def run_step(self):
         s1 = self.preprocess(self.game.get_state().screen_buffer)
 
