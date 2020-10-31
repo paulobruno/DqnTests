@@ -55,22 +55,11 @@ args = parser.parse_args()
 
 import vizdoom
 
-from cv2 import resize
-from tqdm import trange
-
-import itertools as it
-import numpy as np
 import os # to check if a model folder exists
-
-from random import sample, randint, random
-from time import time, sleep
 
 import tensorflow as tf
 from tensorflow import keras
-from network.dqn import DQN
-from network.relay_memory import ReplayMemory
 
-import test_maps
 from agent import Agent
 
 # limit gpu usage
