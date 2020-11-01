@@ -18,14 +18,14 @@ import test_maps
 class Agent:
 
     def __init__(self, num_epochs, batch_size, game, resolution, replay_memory_size, should_save_model,
-                 frame_repeat=8, episodes_to_watch=10):
+                 frame_repeat=8, episodes_to_watch=10, train_episodes_per_epoch = 200, test_episodes_per_epoch = 200):
         self.log_on_tensorboard = True
         self.should_save_model = should_save_model
         self.num_epochs = num_epochs
         self.channel = 1
         self.eps = 1
-        self.train_episodes_per_epoch = 200
-        self.test_episodes_per_epoch = 200
+        self.train_episodes_per_epoch = train_episodes_per_epoch
+        self.test_episodes_per_epoch = test_episodes_per_epoch
         self.resolution = resolution
         self.game = game
         self.actions = [list(a) for a in it.product([0, 1], repeat=game.get_available_buttons_size())]
@@ -68,7 +68,7 @@ class Agent:
             return randint(0, len(self.actions) - 1)
         else:
             # Choose the best action according to the network.
-            return self.dqn.get_best_action(state)
+            return self.dqn.get_single_best_action(state)
 
     def run_step(self):
         s1 = self.preprocess(self.game.get_state().screen_buffer)
@@ -103,7 +103,7 @@ class Agent:
 
         while not self.game.is_episode_finished():
             state = self.preprocess(self.game.get_state().screen_buffer)
-            best_action_index = self.dqn.get_best_action(state)
+            best_action_index = self.dqn.get_single_best_action(state)
             self.game.make_action(self.actions[best_action_index], self.frame_repeat)
 
         score = self.game.get_total_reward()
@@ -127,8 +127,7 @@ class Agent:
                     tf.summary.scalar('std', _std, step=epoch)
                     # SAVE MODEL HEREEEEE
 
-                    if self.should_save_model and save_interval is not None and save_folder is not None \
-                            and save_interval % epoch == 0:
+                    if self.should_save_model and save_interval % (epoch+1) == 0:
                         self.dqn.save(save_folder)
 
                     self.run_episode_test(epoch)
@@ -146,7 +145,7 @@ class Agent:
 
             while not self.game.is_episode_finished():
                 state = self.preprocess(self.game.get_state().screen_buffer)
-                best_action_index = self.dqn.get_best_action(state)
+                best_action_index = self.dqn.get_single_best_action(state)
 
                 # Instead of make_action(a, frame_repeat) in order to make the animation smooth
                 self.game.set_action(self.actions[best_action_index])

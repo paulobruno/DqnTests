@@ -107,7 +107,8 @@ if __name__ == '__main__':
     # create vizdoom game
     game = initialize_vizdoom(args)
     agent = Agent(num_epochs=args.num_epochs, batch_size=batch_size, game=game, resolution=resolution,
-                  should_save_model=args.save_model, replay_memory_size=replay_memory_size)
+                  should_save_model=True, replay_memory_size=replay_memory_size,
+                  train_episodes_per_epoch=episodes_per_epoch, test_episodes_per_epoch=test_episodes_per_epoch)
 
 
     

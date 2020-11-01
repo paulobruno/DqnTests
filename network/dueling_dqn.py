@@ -85,24 +85,3 @@ class Dueling_DQN(keras.Model):
     def get_batch_best_action(self, batch, state):
         s = state.reshape([batch, self.input_dim[0], self.input_dim[1], 1])
         return tf.argmax(self.model.predict(s), axis=1)
-
-    # @tf.function
-    # def compute_loss(self, state, actions, target_Q):
-    #     q_values = self.model.predict(state)
-    #
-    #     action_q_values = tf.reduce_sum(tf.multiply(q_values, actions), axis=1)
-    #     absolute_errors = tf.abs(target_Q - action_q_values)  # for updating Sumtree
-    #     loss = tf.reduce_mean(self.model.trainable_weights * tf.squared_difference(target_Q, Q))
-    #     return loss, absolute_errors
-    #
-    # @tf.function
-    # def run_train(self, state, target_Q):
-    #     # if isinstance(data, tuple):
-    #     #     data = data[0]
-    #     with tf.GradientTape() as tape:
-    #         loss, absolute_errors = self.compute_loss(state, target_Q)
-    #
-    #     grads = tape.gradient(loss, self.trainable_weights)
-    #     self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-    #     return loss
-
