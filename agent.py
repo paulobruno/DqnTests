@@ -156,4 +156,4 @@ class Agent:
             sleep(1.0)
             score = self.game.get_total_reward()
             tf.summary.scalar('eval', score, step=episode)
-            self.game.close()
+        self.game.close()

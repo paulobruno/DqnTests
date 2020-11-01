@@ -28,7 +28,7 @@ parser.add_argument(
     type=int,
     metavar="N",
     help="Num of epochs to train. [default=20]",
-    default=20)
+    default=2)
 parser.add_argument(
     "-i", "--save-model-interval",
     type=int,
@@ -79,13 +79,13 @@ batch_size = 64
 dropout_prob = 0.3
 
 # Training regime
-episodes_per_epoch = 200
-test_episodes_per_epoch = 200
+episodes_per_epoch = 2
+test_episodes_per_epoch = 2
 
 # Other parameters
 resolution = (48, 64)
 frame_repeat = 8
-episodes_to_watch = 5
+episodes_to_watch = 10
 
 
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
                   should_save_model=True, replay_memory_size=replay_memory_size,
                   train_episodes_per_epoch=episodes_per_epoch, test_episodes_per_epoch=test_episodes_per_epoch)
 
-
+    args.load_model = True
     
     # load or create new model
     if (args.load_model and os.path.isdir(args.model_folder)):

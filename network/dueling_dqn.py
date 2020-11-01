@@ -21,7 +21,6 @@ class Dueling_DQN(keras.Model):
         self.model.save(model_folder)
 
     def _create_network(self):
-        dropout_prob = 0.3
 
         inputs = keras.Input(shape=self.input_dim, name='frame')
         x = layers.Conv2D(filters=32, kernel_size=(4, 4), strides=(2, 2), padding='same',
@@ -80,8 +79,10 @@ class Dueling_DQN(keras.Model):
 
     def get_single_best_action(self, state):
         s = state.reshape([1, self.input_dim[0], self.input_dim[1], 1])
-        return tf.argmax(self.model.predict(s)[0])
+        # a = tf.argmax(self.model(s)[0])
+        # print("Action: {}".format(a))
+        return tf.argmax(self.model(s)[0])
 
     def get_batch_best_action(self, batch, state):
         s = state.reshape([batch, self.input_dim[0], self.input_dim[1], 1])
-        return tf.argmax(self.model.predict(s), axis=1)
+        return tf.argmax(self.model(s), axis=1)
