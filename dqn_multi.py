@@ -128,7 +128,7 @@ def learn_from_memory(model):
         learn(model, s1, target_q)
 
 
-def perform_learning_step(model, epoch):
+def choose_action_from_state(state, model, epoch):
     """ Makes an action according to eps-greedy policy, observes the result
     (next state, reward) and learns from the transition"""
 
@@ -148,23 +148,41 @@ def perform_learning_step(model, epoch):
         else:
             return end_eps
 
-    s1 = preprocess(game.get_state().screen_buffer)
-
     # With probability eps make a random action.
     eps = exploration_rate(epoch)
+
     if random() <= eps:
         a = randint(0, len(actions) - 1)
     else:
         # Choose the best action according to the network.
-        a = get_best_action(model, s1)
+        a = get_best_action(model, state)
+
+    return a
+
+
+def perform_learning_step(epoch, memory, q_network):
+
+    # generate transition and store in memory
+    s_old = preprocess(game.get_state().screen_buffer)
+    
+    a = choose_action_from_state(s_old, q_network, epoch)
+
+    r = game.make_action(actions[a], frame_repeat)
+
+    if game.is_episode_finished():
+        s_new = None
+        score = game.get_total_reward()
+        train_scores.put(score) # train_scores is a Queue
+        
+        if train_scores.qsize() < num_episodes:
+            game.new_episode()
+            #episodes_started.put(
+    else:
+        s_new = preprocess(game.get_state().screen_buffer)
+
+    memory.add_transition(s_old, a, s_new, r, isterminal)
 
     reward = game.make_action(actions[a], frame_repeat)
-
-    isterminal = game.is_episode_finished()
-    s2 = preprocess(game.get_state().screen_buffer) if not isterminal else None
-
-    # Remember the transition that was just experienced.
-    memory.add_transition(s1, a, s2, isterminal, reward)
 
     learn_from_memory(model)
 
