@@ -9,7 +9,7 @@ import os # to check if a model folder exists
 
 from random import sample, randint, random
 from time import time, sleep
-from multiprocessing import Process, Manager
+from multiprocessing import Process, Manager, current_process
 from multiprocessing.managers import BaseManager
 
 import tensorflow as tf
@@ -40,10 +40,18 @@ episodes_to_watch = 5
 
 # TODO: virar args
 num_network_updates = 10000
-num_epochs = 25
+num_epochs = 2
 num_episodes = 200
 config_file = 'scenarios/basic/basic/basic.cfg'
+num_processes = 2
 
+
+# limit gpu usage
+# by default, tensorflow allocates all available memory
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
+    
 
 # Converts and down-samples the input image
 def preprocess(img):
@@ -81,7 +89,10 @@ class ReplayMemory:
     def get_sample(self, sample_size):
         i = sample(range(0, self.size), sample_size)
         return self.s1[i], self.a[i], self.s2[i], self.isterminal[i], self.r[i]
-        
+    
+    def get_size(self):
+        return self.size
+
         
 def create_network(available_actions_count):
 
@@ -138,8 +149,8 @@ def choose_action_from_state(state, model, epoch):
         """# Define exploration rate change over time"""
         start_eps = 1.0
         end_eps = 0.1
-        const_eps_epochs = 0.1 * args.num_epochs  # 10% of learning time
-        eps_decay_epochs = 0.6 * args.num_epochs  # 60% of learning time
+        const_eps_epochs = 0.1 * num_epochs  # 10% of learning time
+        eps_decay_epochs = 0.6 * num_epochs  # 60% of learning time
 
         if epoch < const_eps_epochs:
             return start_eps
@@ -162,38 +173,39 @@ def choose_action_from_state(state, model, epoch):
     return a
 
 
-def perform_learning_step(epoch, memory, q_network):
-
+def generate_memory(epoch, memory, q_network):
+    
     # create vizdoom game
     game = initialize_vizdoom()
     game.new_episode()
     #episodes_starte.put(
 
-    while True:
+    episode_finished = False
+
+    while not episode_finished:
         
         # generate transition and store in memory
         s_old = preprocess(game.get_state().screen_buffer)
         
-        a = choose_action_from_state(s_old, q_network, epoch)
-
+        #a = choose_action_from_state(s_old, q_network, epoch)
+        a = randint(0, len(actions) - 1)
+        
         r = game.make_action(actions[a], frame_repeat)
 
-        if game.is_episode_finished():
-            s_new = None
-            score = game.get_total_reward()
-            train_scores.put(score) # train_scores is a Queue
-            
-            if train_scores.qsize() < num_episodes:
-                game.new_episode()
-                #episodes_started.put(
-        else:
-            s_new = preprocess(game.get_state().screen_buffer)
+        episode_finished = game.is_episode_finished()
+        s_new = preprocess(game.get_state().screen_buffer) if not episode_finished else None
 
-        memory.add_transition(s_old, a, s_new, r, isterminal)
-
-        reward = game.make_action(actions[a], frame_repeat)
-
-        learn_from_memory(model)
+        print('%s.: %s' % (current_process().name, memory.get_size()))
+        memory.add_transition(s_old, a, s_new, r, episode_finished)
+        print('.%s: %s' % (current_process().name, memory.get_size()))
+    
+    game.close()
+    print('end')
+    
+    #score = game.get_total_reward()
+    #train_scores.put(score) # train_scores is a Queue
+    
+    #learn_from_memory(model)
 
 
 def initialize_vizdoom():
@@ -219,8 +231,30 @@ if __name__ == '__main__':
 
     # create vizdoom game
     game = initialize_vizdoom()
-
     num_actions = game.get_available_buttons_size()
+    game.close()
     actions = [list(a) for a in it.product([0, 1], repeat=num_actions)]
 
+    # TODO: q network tbm tem q ser atualizada
+    q_network = create_network(len(actions))
+    #target_network = create_network(len(actions))
+
+
+    for epoch in range(num_epochs):    
+        print("\nEpoch %d\n-------" % (epoch + 1))        
+
+        print("Training...")
+        train_scores = []
+        
+        processes = []
+        episode = num_episodes
+    
+        # processes that generate memory
+        for i in range(num_processes):
+            p = Process(target=generate_memory, args=(epoch, memory, q_network))
+            processes.append(p)
+            p.start()
+            
+        for p in processes:
+            p.join()
     
