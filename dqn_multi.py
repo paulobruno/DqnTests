@@ -9,6 +9,8 @@ import os # to check if a model folder exists
 
 from random import sample, randint, random
 from time import time, sleep
+from multiprocessing import Process, Manager
+from multiprocessing.managers import BaseManager
 
 import tensorflow as tf
 from tensorflow import keras
@@ -162,29 +164,36 @@ def choose_action_from_state(state, model, epoch):
 
 def perform_learning_step(epoch, memory, q_network):
 
-    # generate transition and store in memory
-    s_old = preprocess(game.get_state().screen_buffer)
-    
-    a = choose_action_from_state(s_old, q_network, epoch)
+    # create vizdoom game
+    game = initialize_vizdoom()
+    game.new_episode()
+    #episodes_starte.put(
 
-    r = game.make_action(actions[a], frame_repeat)
-
-    if game.is_episode_finished():
-        s_new = None
-        score = game.get_total_reward()
-        train_scores.put(score) # train_scores is a Queue
+    while True:
         
-        if train_scores.qsize() < num_episodes:
-            game.new_episode()
-            #episodes_started.put(
-    else:
-        s_new = preprocess(game.get_state().screen_buffer)
+        # generate transition and store in memory
+        s_old = preprocess(game.get_state().screen_buffer)
+        
+        a = choose_action_from_state(s_old, q_network, epoch)
 
-    memory.add_transition(s_old, a, s_new, r, isterminal)
+        r = game.make_action(actions[a], frame_repeat)
 
-    reward = game.make_action(actions[a], frame_repeat)
+        if game.is_episode_finished():
+            s_new = None
+            score = game.get_total_reward()
+            train_scores.put(score) # train_scores is a Queue
+            
+            if train_scores.qsize() < num_episodes:
+                game.new_episode()
+                #episodes_started.put(
+        else:
+            s_new = preprocess(game.get_state().screen_buffer)
 
-    learn_from_memory(model)
+        memory.add_transition(s_old, a, s_new, r, isterminal)
+
+        reward = game.make_action(actions[a], frame_repeat)
+
+        learn_from_memory(model)
 
 
 def initialize_vizdoom():
@@ -201,6 +210,12 @@ def initialize_vizdoom():
 
 
 if __name__ == '__main__':
+    
+    # shared replay memory
+    BaseManager.register('ReplayMemory', ReplayMemory)
+    manager = BaseManager()
+    manager.start()    
+    memory = manager.ReplayMemory(capacity=replay_memory_size)
 
     # create vizdoom game
     game = initialize_vizdoom()
@@ -208,5 +223,4 @@ if __name__ == '__main__':
     num_actions = game.get_available_buttons_size()
     actions = [list(a) for a in it.product([0, 1], repeat=num_actions)]
 
-    memory = ReplayMemory(capacity=replay_memory_size)
     
