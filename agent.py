@@ -85,7 +85,7 @@ class Agent:
         self.memory.add_transition(s1, a, s2, isterminal, reward)
 
         if self.memory.size > self.batch_size:
-            self.dqn.train_step(self.memory)
+            self.dqn.train_step(self.memory, self.batch_size)
 
     def run_episode(self):
         self.game.new_episode()

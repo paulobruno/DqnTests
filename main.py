@@ -28,7 +28,7 @@ parser.add_argument(
     type=int,
     metavar="N",
     help="Num of epochs to train. [default=20]",
-    default=2)
+    default=20)
 parser.add_argument(
     "-i", "--save-model-interval",
     type=int,
@@ -79,13 +79,13 @@ batch_size = 64
 dropout_prob = 0.3
 
 # Training regime
-episodes_per_epoch = 2
-test_episodes_per_epoch = 2
+episodes_per_epoch = 200
+test_episodes_per_epoch = 200
 
 # Other parameters
 resolution = (48, 64)
 frame_repeat = 8
-episodes_to_watch = 10
+episodes_to_watch = 5
 
 
 

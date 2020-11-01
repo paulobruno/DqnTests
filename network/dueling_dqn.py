@@ -48,16 +48,13 @@ class Dueling_DQN(keras.Model):
 
         return model
 
-
     def call(self, state):
         return self.model.predict(state)
 
+    def train_step(self, memory, batch_size):
 
-    def train_step(self, memory):
-        batch_size = 32
         s1, a, s2, isterminal, r = memory.get_sample(batch_size)
         return self.computer_loss(s1, a, s2, isterminal, r)
-
 
     def computer_loss(self, s1, a, s2, isterminal, r):
         with tf.GradientTape() as tape:
@@ -71,7 +68,6 @@ class Dueling_DQN(keras.Model):
             reference_q = r + self.discount_factor * (1 - isterminal) * next_state_values_target
             absolute_errors = (action_q_values - reference_q)**2
             loss = tf.reduce_mean(absolute_errors)
-
 
         grads = tape.gradient(loss, self.weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
