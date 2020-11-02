@@ -110,7 +110,7 @@ if __name__ == '__main__':
                   should_save_model=True, replay_memory_size=replay_memory_size,
                   train_episodes_per_epoch=episodes_per_epoch, test_episodes_per_epoch=test_episodes_per_epoch)
 
-    args.load_model = True
+    args.load_model = False
     
     # load or create new model
     if (args.load_model and os.path.isdir(args.model_folder)):
