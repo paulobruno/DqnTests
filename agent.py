@@ -1,6 +1,5 @@
 import vizdoom
 from random import randint, random
-import itertools as it
 import numpy as np
 from cv2 import resize
 from time import sleep
@@ -18,7 +17,7 @@ import test_maps
 class Agent:
 
     def __init__(self, num_epochs, batch_size, game, resolution, replay_memory_size, should_save_model,
-                 frame_repeat=8, episodes_to_watch=10, train_episodes_per_epoch = 200, test_episodes_per_epoch = 200):
+                 episodes_to_watch, train_episodes_per_epoch, test_episodes_per_epoch, frame_repeat=8):
         self.log_on_tensorboard = True
         self.should_save_model = should_save_model
         self.num_epochs = num_epochs
@@ -28,7 +27,7 @@ class Agent:
         self.test_episodes_per_epoch = test_episodes_per_epoch
         self.resolution = resolution
         self.game = game
-        self.actions = [list(a) for a in it.product([0, 1], repeat=game.get_available_buttons_size())]
+        self.actions = self.game.action_space()
         self.frame_repeat = frame_repeat
         self.batch_size = batch_size
         self.episodes_to_watch = episodes_to_watch
@@ -71,7 +70,7 @@ class Agent:
             return self.dqn.get_single_best_action(state)
 
     def run_step(self):
-        s1 = self.preprocess(self.game.get_state().screen_buffer)
+        s1 = self.preprocess(self.game.get_state())
 
         # With probability eps make a random action.
         a = self.get_action(s1)
@@ -79,7 +78,7 @@ class Agent:
         reward = self.game.make_action(self.actions[a], self.frame_repeat)
 
         isterminal = self.game.is_episode_finished()
-        s2 = self.preprocess(self.game.get_state().screen_buffer) if not isterminal else None
+        s2 = self.preprocess(self.game.get_state()) if not isterminal else None
 
         # Remember the transition that was just experienced.
         self.memory.add_transition(s1, a, s2, isterminal, reward)
@@ -102,7 +101,7 @@ class Agent:
         self.game.new_episode()
 
         while not self.game.is_episode_finished():
-            state = self.preprocess(self.game.get_state().screen_buffer)
+            state = self.preprocess(self.game.get_state())
             best_action_index = self.dqn.get_single_best_action(state)
             self.game.make_action(self.actions[best_action_index], self.frame_repeat)
 
@@ -136,21 +135,18 @@ class Agent:
 
     def eval(self):
         # Reinitialize the game with window visible
-        self.game.set_window_visible(True)
-        self.game.set_mode(vizdoom.Mode.ASYNC_PLAYER)
+        self.game.make_visible()
         self.game.init()
 
         for episode in range(self.episodes_to_watch):
             self.game.new_episode()
 
             while not self.game.is_episode_finished():
-                state = self.preprocess(self.game.get_state().screen_buffer)
+                state = self.preprocess(self.game.get_state())
                 best_action_index = self.dqn.get_single_best_action(state)
 
                 # Instead of make_action(a, frame_repeat) in order to make the animation smooth
-                self.game.set_action(self.actions[best_action_index])
-                for _ in range(self.frame_repeat):
-                    self.game.advance_action()
+                self.game.play(self.actions[best_action_index], self.frame_repeat)
 
             # Sleep between episodes
             sleep(1.0)

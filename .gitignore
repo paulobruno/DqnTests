@@ -5,6 +5,9 @@ __pycache__/
 # ViZDoom
 _vizdoom.ini
 
+# Profile
+profile
+
 # Temp files
 *~
 Temp*

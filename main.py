@@ -52,15 +52,14 @@ parser.add_argument(
 
 args = parser.parse_args()
     
-
-import vizdoom
-
 import os # to check if a model folder exists
 
 import tensorflow as tf
 from tensorflow import keras
 
 from agent import Agent
+from games.vizdoom import VizDoom
+from games.gym import GymGame
 
 # limit gpu usage
 # by default, tensorflow allocates all available memory
@@ -85,32 +84,20 @@ test_episodes_per_epoch = 200
 # Other parameters
 resolution = (48, 64)
 frame_repeat = 8
-episodes_to_watch = 5
+episodes_to_watch = 10
 
-
-
-def initialize_vizdoom(args):
-    print("[1.] Initializing ViZDoom...")
-    game = vizdoom.DoomGame()
-    game.load_config(args.config_file)
-    game.set_window_visible(args.enable_training_view)
-    game.set_mode(vizdoom.Mode.PLAYER)
-    game.set_screen_format(vizdoom.ScreenFormat.GRAY8)
-    game.set_screen_resolution(vizdoom.ScreenResolution.RES_640X480)
-    game.init()
-    print("[.1] ... ViZDoom initialized.")
-    return game
+args.num_epochs = 20
 
 
 if __name__ == '__main__':
 
     # create vizdoom game
-    game = initialize_vizdoom(args)
+    game = VizDoom(VizDoom.configure_from_args(args))
     agent = Agent(num_epochs=args.num_epochs, batch_size=batch_size, game=game, resolution=resolution,
-                  should_save_model=True, replay_memory_size=replay_memory_size,
+                  should_save_model=True, replay_memory_size=replay_memory_size, episodes_to_watch=episodes_to_watch,
                   train_episodes_per_epoch=episodes_per_epoch, test_episodes_per_epoch=test_episodes_per_epoch)
 
-    args.load_model = False
+    # args.load_model = True
     
     # load or create new model
     if (args.load_model and os.path.isdir(args.model_folder)):

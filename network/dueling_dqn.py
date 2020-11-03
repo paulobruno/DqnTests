@@ -84,7 +84,7 @@ class Dueling_DQN(keras.Model):
     def computer_loss(self, s1, a, s2, isterminal, r):
         with tf.GradientTape() as tape:
             Q_next = tf.stop_gradient(tf.reduce_max(self.model(s2), axis=1))
-            Q_pred = tf.reduce_sum(tf.multiply(tf.one_hot(a, 8), self.model(s1)), axis=1)
+            Q_pred = tf.reduce_sum(tf.multiply(tf.one_hot(a, self.output_dim), self.model(s1)), axis=1)
             loss = tf.reduce_mean(0.5*(r + (1-isterminal)*self.discount_factor*Q_next - Q_pred)**2)
 
         grads = tape.gradient(loss, self.model.trainable_variables)
