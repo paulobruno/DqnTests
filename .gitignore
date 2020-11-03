@@ -2,8 +2,16 @@
 __pycache__/
 .idea
 
+# ViZDoom
+_vizdoom.ini
+
+# Profile
+profile
+
 # Temp files
 *~
+Temp*
+temp*
 
 # Commit file
 [Nn]otes.txt

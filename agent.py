@@ -1,11 +1,12 @@
 import vizdoom
 from random import randint, random
-import itertools as it
 import numpy as np
 from cv2 import resize
-from time import sleep, time
+from time import sleep
+from utils.decorator import timeit
 
-from network.dqn import DQN
+from network.dueling_dqn import Dueling_DQN as model
+#from network.dqn import DQN as model
 from network.relay_memory import ReplayMemory
 import tensorflow as tf
 from tqdm import trange
@@ -15,35 +16,29 @@ import test_maps
 
 class Agent:
 
-    def __init__(self, num_epochs, batch_size, game, resolution, replay_memory_size, frame_repeat=8, episodes_to_watch=10):
+    def __init__(self, num_epochs, batch_size, game, resolution, replay_memory_size, should_save_model,
+                 episodes_to_watch, train_episodes_per_epoch, test_episodes_per_epoch, frame_repeat=8):
+        self.log_on_tensorboard = True
+        self.should_save_model = should_save_model
         self.num_epochs = num_epochs
         self.channel = 1
         self.eps = 1
-        self.train_episodes_per_epoch = 200
-        self.test_episodes_per_epoch = 200
+        self.train_episodes_per_epoch = train_episodes_per_epoch
+        self.test_episodes_per_epoch = test_episodes_per_epoch
         self.resolution = resolution
         self.game = game
-        self.actions = [list(a) for a in it.product([0, 1], repeat=game.get_available_buttons_size())]
+        self.actions = self.game.action_space()
         self.frame_repeat = frame_repeat
         self.batch_size = batch_size
         self.episodes_to_watch = episodes_to_watch
 
         input_shape = (resolution[0], resolution[1], self.channel)
-        self.dqn = DQN(input_shape, len(self.actions))
+        self.dqn = model(input_shape, len(self.actions))
 
         state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
         self.memory = ReplayMemory(state_shape)
 
         self.writer = tf.summary.create_file_writer('tensorboard')
-
-    def timeit(fn):
-        def timed(*args, **kw):
-            ts = time()
-            result = fn(*args, **kw)
-            te = time()
-            print("{} Elapsed time {}".format(fn.__name__.upper(), (te - ts) * 1000))
-            return result
-        return timed
 
     def preprocess(self, img):
         img = resize(img, (self.resolution[1], self.resolution[0]))
@@ -72,11 +67,10 @@ class Agent:
             return randint(0, len(self.actions) - 1)
         else:
             # Choose the best action according to the network.
-            return self.dqn.get_best_action(state)
+            return self.dqn.get_single_best_action(state)
 
-    @timeit
     def run_step(self):
-        s1 = self.preprocess(self.game.get_state().screen_buffer)
+        s1 = self.preprocess(self.game.get_state())
 
         # With probability eps make a random action.
         a = self.get_action(s1)
@@ -84,13 +78,13 @@ class Agent:
         reward = self.game.make_action(self.actions[a], self.frame_repeat)
 
         isterminal = self.game.is_episode_finished()
-        s2 = self.preprocess(self.game.get_state().screen_buffer) if not isterminal else None
+        s2 = self.preprocess(self.game.get_state()) if not isterminal else None
 
         # Remember the transition that was just experienced.
         self.memory.add_transition(s1, a, s2, isterminal, reward)
 
         if self.memory.size > self.batch_size:
-            self.dqn.train_step(self.memory)
+            self.dqn.train_step(self.memory, self.batch_size)
 
     def run_episode(self):
         self.game.new_episode()
@@ -107,8 +101,8 @@ class Agent:
         self.game.new_episode()
 
         while not self.game.is_episode_finished():
-            state = self.preprocess(self.game.get_state().screen_buffer)
-            best_action_index = self.dqn.get_best_action(state)
+            state = self.preprocess(self.game.get_state())
+            best_action_index = self.dqn.get_single_best_action(state)
             self.game.make_action(self.actions[best_action_index], self.frame_repeat)
 
         score = self.game.get_total_reward()
@@ -122,39 +116,40 @@ class Agent:
         scores = [self.run_episode_test(episode) for episode in trange(self.test_episodes_per_epoch, leave=False)]
         return np.mean(scores), np.max(scores), np.min(scores), np.std(scores)
 
-    def run(self):
+    def run(self, save_interval=None, save_folder=None):
         with self.writer.as_default():
-            with tf.summary.record_if(True):
+            with tf.summary.record_if(self.log_on_tensorboard):
                 for epoch in range(self.num_epochs):
                     self.eps = self.calc_epsilon(epoch)
-                    mean, max, min, std = self.run_epoch_train()
-                    tf.summary.scalar('mean', mean, step=epoch)
-                    tf.summary.scalar('std', std, step=epoch)
-                    #SAVE MODEL HEREEEEE
-                    self.run_episode_test()
+                    _mean, _max, _min, _std = self.run_epoch_train()
+                    tf.summary.scalar('mean', _mean, step=epoch)
+                    tf.summary.scalar('std', _std, step=epoch)
+                    # SAVE MODEL HEREEEEE
+
+                    if self.should_save_model and save_interval % (epoch+1) == 0:
+                        self.dqn.save(save_folder)
+
+                    self.run_episode_test(epoch)
 
         self.game.close()
 
     def eval(self):
         # Reinitialize the game with window visible
-        self.game.set_window_visible(True)
-        self.game.set_mode(vizdoom.Mode.ASYNC_PLAYER)
+        self.game.make_visible()
         self.game.init()
 
         for episode in range(self.episodes_to_watch):
             self.game.new_episode()
 
             while not self.game.is_episode_finished():
-                state = self.preprocess(self.game.get_state().screen_buffer)
-                best_action_index = self.dqn.get_best_action(state)
+                state = self.preprocess(self.game.get_state())
+                best_action_index = self.dqn.get_single_best_action(state)
 
                 # Instead of make_action(a, frame_repeat) in order to make the animation smooth
-                self.game.set_action(self.actions[best_action_index])
-                for _ in range(self.frame_repeat):
-                    self.game.advance_action()
+                self.game.play(self.actions[best_action_index], self.frame_repeat)
 
             # Sleep between episodes
             sleep(1.0)
             score = self.game.get_total_reward()
             tf.summary.scalar('eval', score, step=episode)
-            self.game.close()
+        self.game.close()
