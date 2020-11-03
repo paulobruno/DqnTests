@@ -86,8 +86,6 @@ resolution = (48, 64)
 frame_repeat = 8
 episodes_to_watch = 10
 
-args.num_epochs = 20
-
 
 if __name__ == '__main__':
 
