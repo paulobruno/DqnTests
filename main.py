@@ -1,65 +1,15 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
+from utils.args import log_params, build_args
 
-
-# parse command line arguments
-import argparse
-
-parser = argparse.ArgumentParser(
-    description="Train an agent in a given scenario. The agent can be trained from scratch or load a trained model. Be careful: if loading a previously trained agent the scenario given should be the same, if not it could break or run as usual but with a poor performance.")
-
-parser.add_argument(
-    "config_file",
-    help="CFG file with settings of the ViZDoom scenario.")
-parser.add_argument(
-    "-l", "--load-model",
-    action="store_true",
-    help="Load a model from '--model-folder' if it is given and exists.")
-parser.add_argument(
-    "-s", "--save-model",
-    action="store_true",
-    help="Save a model in '--model-folder' if it is given. If no '--model-folder' is given, a folder called 'temp_model' will be created.")
-parser.add_argument(
-    "-m", "--model-folder",
-    metavar="FOLDERNAME",
-    help="Path to the folder containing the model to be saved or loaded.",
-    default="temp_model")
-parser.add_argument(
-    "-e", "--num-epochs",
-    type=int,
-    metavar="N",
-    help="Num of epochs to train. [default=20]",
-    default=20)
-parser.add_argument(
-    "-i", "--save-model-interval",
-    type=int,
-    metavar="N",
-    help="The model will be saved every N epochs. [default=5]",
-    default=5)
-parser.add_argument(
-    "-show", "--show-model",
-    metavar="FILENAME",
-    help="Print the model architecture on screen and save a PNG image.",
-    default="")
-parser.add_argument(
-    "-v", "--enable-training-view",
-    action="store_true",
-    help="Enable rendering of the game during agent training.")
-parser.add_argument(
-    "-log", "--log-file",
-    metavar="FILENAME",
-    help="Path to a file to save the results.",
-    default="temp_log_file.txt")
-
-args = parser.parse_args()
+args = build_args()
     
 import os # to check if a model folder exists
 
 import tensorflow as tf
 from tensorflow import keras
 
-from agent import Agent
+from agent.dueling_agent import Agent
 from games.vizdoom import VizDoom
-from games.gym import GymGame
 
 # limit gpu usage
 # by default, tensorflow allocates all available memory
@@ -68,72 +18,46 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 
-# Q-learning settings
-learning_rate = 0.0001
-discount_factor = 0.99
-replay_memory_size = 10000
-
-# NN learning settings
-batch_size = 64
-dropout_prob = 0.3
-
-# Training regime
-episodes_per_epoch = 200
-test_episodes_per_epoch = 200
-
-# Other parameters
-resolution = (48, 64)
-frame_repeat = 8
-episodes_to_watch = 10
+params = {
+    "learning_rate": 0.0001,
+    "discount_factor": 0.99,
+    "replay_memory_size": 10000,
+    "batch_size": 64,
+    "dropout_prob": 0.3,
+    "train_episodes_per_epoch": 200,
+    "test_episodes_per_epoch": 200,
+    "resolution": (48, 64),
+    "frame_repeat": 5,
+    "episodes_to_watch": 10,
+    "num_epochs": 20,
+    "should_save_model": args.save_model,
+    "game": VizDoom(VizDoom.configure_from_args(args))
+}
 
 
 if __name__ == '__main__':
 
     # create vizdoom game
-    game = VizDoom(VizDoom.configure_from_args(args))
-    agent = Agent(num_epochs=args.num_epochs, batch_size=batch_size, game=game, resolution=resolution,
-                  should_save_model=True, replay_memory_size=replay_memory_size, episodes_to_watch=episodes_to_watch,
-                  train_episodes_per_epoch=episodes_per_epoch, test_episodes_per_epoch=test_episodes_per_epoch)
+    agent = Agent(**params)
 
     # args.load_model = True
-    
+
     # load or create new model
     if (args.load_model and os.path.isdir(args.model_folder)):
         print("Loading model from " + args.model_folder + ".")
-        agent.dqn.load(args.model_folder)
+        agent.net.load("{}/models/model.h5".format(args.model_folder))
+        agent.net.load_checkpoits("{}/checkpoints/".format(args.model_folder))
     else:
         if not os.path.isdir(args.model_folder):
             print("No folder was found in " + args.model_folder + ".")
 
-        
     if args.show_model:
-        agent.dqn.dqn.model.summary()
-        keras.utils.plot_model(agent.dqn.dqn.model, args.show_model + ".png", show_shapes=True)
+        agent.net.net.model.summary()
+        keras.utils.plot_model(agent.net.net.model, args.show_model + ".png", show_shapes=True)
         
-
-    # open file to save resultsMap: line
-    if args.log_file:
-        log_file = open(args.log_file, "w", buffering=1)
-        print("Map,{}".format(args.config_file), file=log_file)
-        print("Resolution,{}".format(resolution), file=log_file)
-        print("Frame Repeat,{}".format(frame_repeat), file=log_file)
-        print("Learning Rate,{}".format(learning_rate), file=log_file)
-        print("Discount,{}".format(discount_factor), file=log_file)
-        print("Replay Memory,{}".format(replay_memory_size), file=log_file)
-        print("Batch Size,{}".format(batch_size), file=log_file)
-        print("Dropout,{}".format(dropout_prob), file=log_file)
-        print("Epochs,{}".format(args.num_epochs), file=log_file)
-        print("Training Episodes,{}".format(episodes_per_epoch), file=log_file)
-        print("Testing Episodes,{}".format(test_episodes_per_epoch), file=log_file)
-        print("Training time,Training min,Training max,Training mean,Training std,Testing time,Testing min,Testing max,Testing mean,Testing std", file=log_file)
-        
+    log_params(args, params)
 
     agent.run(args.save_model_interval, args.model_folder)
-
-
-    # close file with results
-    if args.log_file:
-        log_file.close()
 
     agent.eval()
 

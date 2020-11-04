@@ -1,10 +1,9 @@
-import vizdoom
 from random import randint, random
 import numpy as np
 from cv2 import resize
 from time import sleep
-from utils.decorator import timeit
 
+# from network.double_dqn import DDQN as model
 from network.dueling_dqn import Dueling_DQN as model
 #from network.dqn import DQN as model
 from network.relay_memory import ReplayMemory
@@ -16,8 +15,11 @@ import test_maps
 
 class Agent:
 
-    def __init__(self, num_epochs, batch_size, game, resolution, replay_memory_size, should_save_model,
-                 episodes_to_watch, train_episodes_per_epoch, test_episodes_per_epoch, frame_repeat=8):
+    def __init__(self, num_epochs, learning_rate, discount_factor, batch_size, game,
+                 resolution, replay_memory_size, should_save_model,
+                 episodes_to_watch, train_episodes_per_epoch, dropout_prob,
+                 test_episodes_per_epoch, frame_repeat):
+
         self.log_on_tensorboard = True
         self.should_save_model = should_save_model
         self.num_epochs = num_epochs
@@ -33,7 +35,7 @@ class Agent:
         self.episodes_to_watch = episodes_to_watch
 
         input_shape = (resolution[0], resolution[1], self.channel)
-        self.dqn = model(input_shape, len(self.actions))
+        self.net = model(input_shape, len(self.actions))
 
         state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
         self.memory = ReplayMemory(state_shape)
@@ -67,7 +69,7 @@ class Agent:
             return randint(0, len(self.actions) - 1)
         else:
             # Choose the best action according to the network.
-            return self.dqn.get_single_best_action(state)
+            return self.net.get_single_best_action(state)
 
     def run_step(self):
         s1 = self.preprocess(self.game.get_state())
@@ -84,7 +86,7 @@ class Agent:
         self.memory.add_transition(s1, a, s2, isterminal, reward)
 
         if self.memory.size > self.batch_size:
-            self.dqn.train_step(self.memory, self.batch_size)
+            self.net.train_step(self.memory, self.batch_size)
 
     def run_episode(self):
         self.game.new_episode()
@@ -102,7 +104,7 @@ class Agent:
 
         while not self.game.is_episode_finished():
             state = self.preprocess(self.game.get_state())
-            best_action_index = self.dqn.get_single_best_action(state)
+            best_action_index = self.net.get_single_best_action(state)
             self.game.make_action(self.actions[best_action_index], self.frame_repeat)
 
         score = self.game.get_total_reward()
@@ -124,10 +126,10 @@ class Agent:
                     _mean, _max, _min, _std = self.run_epoch_train()
                     tf.summary.scalar('mean', _mean, step=epoch)
                     tf.summary.scalar('std', _std, step=epoch)
-                    # SAVE MODEL HEREEEEE
 
                     if self.should_save_model and save_interval % (epoch+1) == 0:
-                        self.dqn.save(save_folder)
+                        self.net.save("{}/models/model.h5".format(save_folder))
+                        self.net.save_weights("{}/checkpoints/".format(save_folder))
 
                     self.run_episode_test(epoch)
 
@@ -143,7 +145,7 @@ class Agent:
 
             while not self.game.is_episode_finished():
                 state = self.preprocess(self.game.get_state())
-                best_action_index = self.dqn.get_single_best_action(state)
+                best_action_index = self.net.get_single_best_action(state)
 
                 # Instead of make_action(a, frame_repeat) in order to make the animation smooth
                 self.game.play(self.actions[best_action_index], self.frame_repeat)
