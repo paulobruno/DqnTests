@@ -39,9 +39,9 @@ class DQN(keras.Model):
     def call(self, state):
         return self.model.predict(state)
 
-    def train_step(self, memory):
+    def train_step(self, memory, batch_size):
         batch_size = 32
-        s1, a, s2, isterminal, r = memory.get_sample(batch_size)
+        s1, a, s2, isterminal, r = memory.sample(batch_size)
 
         q2 = np.max(self.model.predict(s2), axis=1)
         target_q = self.model.predict(s1)

@@ -34,9 +34,7 @@ params = {
     "game": VizDoom(VizDoom.configure_from_args(args))
 }
 
-
-if __name__ == '__main__':
-
+def run():
     # create vizdoom game
     agent = Agent(**params)
 
@@ -54,13 +52,16 @@ if __name__ == '__main__':
     if args.show_model:
         agent.net.net.model.summary()
         keras.utils.plot_model(agent.net.net.model, args.show_model + ".png", show_shapes=True)
-        
+
     log_params(args, params)
 
     agent.run(args.save_model_interval, args.model_folder)
 
     agent.eval()
 
-    
-
-
+if __name__ == '__main__':
+    try:
+        run()
+    except Exception as e:
+        params["game"].close()
+        raise e

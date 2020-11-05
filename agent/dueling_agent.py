@@ -4,9 +4,11 @@ from cv2 import resize
 from time import sleep
 
 # from network.double_dqn import DDQN as model
-from network.dueling_dqn import Dueling_DQN as model
-#from network.dqn import DQN as model
-from network.relay_memory import ReplayMemory
+from network.dueling_dqn_per import Dueling_DQN_PER as model
+# from network.dueling_dqn import Dueling_DQN as model
+# from network.dqn import DQN as model
+# from memory.relay_memory import ReplayMemory as memory
+from memory.memory import Memory as memory
 import tensorflow as tf
 from tqdm import trange
 
@@ -38,7 +40,7 @@ class Agent:
         self.net = model(input_shape, len(self.actions))
 
         state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
-        self.memory = ReplayMemory(state_shape)
+        self.memory = memory(replay_memory_size)
 
         self.writer = tf.summary.create_file_writer('tensorboard')
 
@@ -83,9 +85,10 @@ class Agent:
         s2 = self.preprocess(self.game.get_state()) if not isterminal else None
 
         # Remember the transition that was just experienced.
-        self.memory.add_transition(s1, a, s2, isterminal, reward)
+        if not isterminal:
+            self.memory.store((s1, a, s2, isterminal, reward))
 
-        if self.memory.size > self.batch_size:
+        if self.memory.tree.size > self.batch_size:
             self.net.train_step(self.memory, self.batch_size)
 
     def run_episode(self):
