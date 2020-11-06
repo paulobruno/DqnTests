@@ -8,7 +8,8 @@ import os # to check if a model folder exists
 import tensorflow as tf
 from tensorflow import keras
 
-from agent.dueling_agent import Agent
+# from agent.ddqn_replay import AgentRelayMemory as Agent
+from agent.agent_per import AgentPriorizedRelayMemory as Agent
 from games.vizdoom import VizDoom
 
 # limit gpu usage
@@ -36,7 +37,7 @@ params = {
 
 def run():
     # create vizdoom game
-    agent = Agent(**params)
+    agent = Agent(params)
 
     # args.load_model = True
 

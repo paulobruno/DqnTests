@@ -15,7 +15,8 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
 
     absolute_error_upper = 1.  # clipped abs error
 
-    def __init__(self, capacity):
+    def __init__(self, state_shape):
+        capacity = state_shape[0]
         # Making the tree
         """
         Remember that our tree is composed of a sum tree that contains the priority scores at his leaf
@@ -39,7 +40,8 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
         if max_priority == 0:
             max_priority = self.absolute_error_upper
 
-        self.tree.add(max_priority, experience)  # set the max p for new p
+        if experience[2] is not None:
+            self.tree.add(max_priority, experience)  # set the max p for new p
 
     """
     - First, to sample a minibatch of k size, the range [0, priority_total] is / into k ranges.
@@ -63,7 +65,10 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
 
         # Calculating the max_weight
         p_min = np.min(self.tree.tree[-self.tree.capacity:]) / self.tree.total_priority
-        max_weight = (p_min * n) ** (-self.PER_b)
+        if p_min == 0:
+            max_weight = 0.0000001
+        else:
+            max_weight = (p_min * n) ** (-self.PER_b)
 
         for i in range(n):
             """
@@ -89,7 +94,8 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
 
             memory_b.append(data)
 
-        return b_idx, self.format_experience(memory_b), b_ISWeights
+        # return b_idx, b_ISWeights, self.convert_experience(memory_b, n)
+        return b_idx, self.convert_experience(memory_b, n)
 
     """
     Update the priorities on the tree
@@ -103,6 +109,21 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
         for ti, p in zip(tree_idx, ps):
             self.tree.update(ti, p)
 
-    def format_experience(self, memory):
-        for m in memory:
-            yield m[0], m[1], m[2], m[3], m[4]
+    def convert_experience(self, experience, batch_size):
+        s1 = np.zeros([batch_size, experience[0][2].shape[0], experience[0][2].shape[1]])
+        s2 = np.zeros([batch_size, experience[0][2].shape[0], experience[0][2].shape[1]])
+        a = np.zeros(batch_size, dtype=int)
+        isterminal = np.zeros(batch_size, dtype=np.float32)
+        r = np.zeros(batch_size, dtype=np.float32)
+
+        for k, ex in enumerate(experience):
+            s1[k] = ex[0]
+            s2[k] = ex[2]
+            a[k] = ex[1]
+            isterminal[k] = ex[3]
+            r[k] = ex[4]
+        return s1, a, s2, isterminal, r
+
+    @property
+    def size(self):
+        return self.tree.size

@@ -15,7 +15,8 @@ class ReplayMemory:
         self.size = 0
         self.pos = 0
 
-    def store(self, s1, action, s2, isterminal, reward):
+    def store(self, experience):
+        s1, action, s2, isterminal, reward = experience
         self.s1[self.pos, :, :, 0] = s1
         self.a[self.pos] = action
         if not isterminal:
@@ -28,4 +29,7 @@ class ReplayMemory:
 
     def sample(self, sample_size):
         i = sample(range(0, self.size), sample_size)
-        return self.s1[i], self.a[i], self.s2[i], self.isterminal[i], self.r[i]
+        return i, (self.s1[i], self.a[i], self.s2[i], self.isterminal[i], self.r[i])
+
+    def batch_update(self, id, abs_loss):
+        pass
