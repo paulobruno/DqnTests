@@ -8,7 +8,8 @@ import os # to check if a model folder exists
 import tensorflow as tf
 from tensorflow import keras
 
-from agent.dueling_agent import Agent
+# from agent.ddqn_replay import AgentRelayMemory as Agent
+from agent.agent_per import AgentPriorizedRelayMemory as Agent
 from games.vizdoom import VizDoom
 
 # limit gpu usage
@@ -34,11 +35,9 @@ params = {
     "game": VizDoom(VizDoom.configure_from_args(args))
 }
 
-
-if __name__ == '__main__':
-
+def run():
     # create vizdoom game
-    agent = Agent(**params)
+    agent = Agent(params)
 
     # args.load_model = True
 
@@ -54,13 +53,16 @@ if __name__ == '__main__':
     if args.show_model:
         agent.net.net.model.summary()
         keras.utils.plot_model(agent.net.net.model, args.show_model + ".png", show_shapes=True)
-        
+
     log_params(args, params)
 
     agent.run(args.save_model_interval, args.model_folder)
 
     agent.eval()
 
-    
-
-
+if __name__ == '__main__':
+    try:
+        run()
+    except Exception as e:
+        params["game"].close()
+        raise e

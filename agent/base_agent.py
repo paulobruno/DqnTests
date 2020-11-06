@@ -4,41 +4,41 @@ from cv2 import resize
 from time import sleep
 
 # from network.double_dqn import DDQN as model
-from network.dueling_dqn import Dueling_DQN as model
-#from network.dqn import DQN as model
-from network.relay_memory import ReplayMemory
+# from network.fixed_dqn import DDQN as model
+from network.ddqn import DDQN
+from network.fixed_dqn import FixedDDQN
+# from memory.relay_memory import ReplayMemory as memory
+from memory.memory import Memory as memory
 import tensorflow as tf
 from tqdm import trange
 
 import test_maps
 
 
-class Agent:
+class BaseAgent:
 
-    def __init__(self, num_epochs, learning_rate, discount_factor, batch_size, game,
-                 resolution, replay_memory_size, should_save_model,
-                 episodes_to_watch, train_episodes_per_epoch, dropout_prob,
-                 test_episodes_per_epoch, frame_repeat):
+    def __init__(self, params, model='fixed-dqn'):
 
         self.log_on_tensorboard = True
-        self.should_save_model = should_save_model
-        self.num_epochs = num_epochs
+        self.should_save_model = params['should_save_model']
+        self.num_epochs = params['num_epochs']
         self.channel = 1
         self.eps = 1
-        self.train_episodes_per_epoch = train_episodes_per_epoch
-        self.test_episodes_per_epoch = test_episodes_per_epoch
-        self.resolution = resolution
-        self.game = game
+        self.train_episodes_per_epoch = params['train_episodes_per_epoch']
+        self.test_episodes_per_epoch = params['test_episodes_per_epoch']
+        self.resolution = params['resolution']
+        self.game = params['game']
         self.actions = self.game.action_space()
-        self.frame_repeat = frame_repeat
-        self.batch_size = batch_size
-        self.episodes_to_watch = episodes_to_watch
+        self.frame_repeat = params['frame_repeat']
+        self.batch_size = params['batch_size']
+        self.episodes_to_watch = params['episodes_to_watch']
 
-        input_shape = (resolution[0], resolution[1], self.channel)
-        self.net = model(input_shape, len(self.actions))
+        input_shape = (self.resolution[0], self.resolution[1], self.channel)
 
-        state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
-        self.memory = ReplayMemory(state_shape)
+        if model == 'fixed-dqn':
+            self.net = FixedDDQN(input_shape, len(self.actions), params['learning_rate'], params['discount_factor'])
+        else:
+            self.net = DDQN(input_shape, len(self.actions), params['learning_rate'], params['discount_factor'])
 
         self.writer = tf.summary.create_file_writer('tensorboard')
 
@@ -68,25 +68,10 @@ class Agent:
         if random() <= self.eps:
             return randint(0, len(self.actions) - 1)
         else:
-            # Choose the best action according to the network.
             return self.net.get_single_best_action(state)
 
     def run_step(self):
-        s1 = self.preprocess(self.game.get_state())
-
-        # With probability eps make a random action.
-        a = self.get_action(s1)
-
-        reward = self.game.make_action(self.actions[a], self.frame_repeat)
-
-        isterminal = self.game.is_episode_finished()
-        s2 = self.preprocess(self.game.get_state()) if not isterminal else None
-
-        # Remember the transition that was just experienced.
-        self.memory.add_transition(s1, a, s2, isterminal, reward)
-
-        if self.memory.size > self.batch_size:
-            self.net.train_step(self.memory, self.batch_size)
+        pass
 
     def run_episode(self):
         self.game.new_episode()
