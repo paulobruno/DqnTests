@@ -3,9 +3,7 @@ import numpy as np
 from cv2 import resize
 from time import sleep
 
-# from network.double_dqn import DDQN as model
-from network.dueling_dqn import Dueling_DQN as model
-#from network.dqn import DQN as model
+from network.reinforce import Reinforce as model
 from memory.relay_memory import ReplayMemory
 import tensorflow as tf
 from tqdm import trange
@@ -13,7 +11,7 @@ from tqdm import trange
 import test_maps
 
 
-class Agent:
+class ReinforceAgent:
 
     def __init__(self, num_epochs, learning_rate, discount_factor, batch_size, game,
                  resolution, replay_memory_size, should_save_model,
@@ -86,7 +84,8 @@ class Agent:
         self.memory.add_transition(s1, a, s2, isterminal, reward)
 
         if self.memory.size > self.batch_size:
-            self.net.train_step(self.memory, self.batch_size)
+            experience = self.memory.get_sample(self.batch_size)
+            self.net.train_step(experience)
 
     def run_episode(self):
         self.game.new_episode()
@@ -122,6 +121,7 @@ class Agent:
         with self.writer.as_default():
             with tf.summary.record_if(self.log_on_tensorboard):
                 for epoch in range(self.num_epochs):
+                    print("Epoch: {}".format(epoch))
                     self.eps = self.calc_epsilon(epoch)
                     _mean, _max, _min, _std = self.run_epoch_train()
                     tf.summary.scalar('mean', _mean, step=epoch)

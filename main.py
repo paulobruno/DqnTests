@@ -8,7 +8,8 @@ import os # to check if a model folder exists
 import tensorflow as tf
 from tensorflow import keras
 
-from agent.dueling_agent import Agent
+# from agent.dueling_agent import Agent
+from agent.reinforce_agent import ReinforceAgent as Agent
 from games.vizdoom import VizDoom
 
 # limit gpu usage
@@ -24,9 +25,9 @@ params = {
     "replay_memory_size": 10000,
     "batch_size": 64,
     "dropout_prob": 0.3,
-    "train_episodes_per_epoch": 200,
+    "train_episodes_per_epoch": 20,
     "test_episodes_per_epoch": 200,
-    "resolution": (48, 64),
+    "resolution": (64, 128),
     "frame_repeat": 5,
     "episodes_to_watch": 10,
     "num_epochs": 20,

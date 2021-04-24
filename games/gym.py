@@ -47,7 +47,7 @@ class GymGame(Game):
         self.acc_reward += reward
         self.should_clear = done
 
-        print(self.count)
+        print(self.count    )
 
         return reward
 

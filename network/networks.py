@@ -54,3 +54,11 @@ def create_vanila_dqn(input_dim, output_dim):
         # model.compile(optimizer='adam', loss='mse')
 
         return model
+
+def create_dense_reinforce(input_dim, output_dim):
+    inputs = Input(shape=input_dim, name='frame')
+    x = Dense(30, activation="relu")(inputs)
+    x = Dense(30, activation="relu")(x)
+    out_layer = Dense(output_dim, activation="softmax")(x)
+
+    return Model(inputs=inputs, outputs=out_layer, name='vizdoom_agent_model')
