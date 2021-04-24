@@ -6,39 +6,37 @@ from time import sleep
 # from network.double_dqn import DDQN as model
 from network.dueling_dqn import Dueling_DQN as model
 #from network.dqn import DQN as model
-from memory.relay_memory import ReplayMemory
+from network.relay_memory import ReplayMemory
 import tensorflow as tf
 from tqdm import trange
 
 import test_maps
 
 
-class Agent:
+class BaseAgent:
 
-    def __init__(self, num_epochs, learning_rate, discount_factor, batch_size, game,
-                 resolution, replay_memory_size, should_save_model,
-                 episodes_to_watch, train_episodes_per_epoch, dropout_prob,
-                 test_episodes_per_epoch, frame_repeat):
+    def __init__(self, params, model='fixed-dqn'):
 
         self.log_on_tensorboard = True
-        self.should_save_model = should_save_model
-        self.num_epochs = num_epochs
+        self.should_save_model = params['should_save_model']
+        self.num_epochs = params['num_epochs']
         self.channel = 1
         self.eps = 1
-        self.train_episodes_per_epoch = train_episodes_per_epoch
-        self.test_episodes_per_epoch = test_episodes_per_epoch
-        self.resolution = resolution
-        self.game = game
+        self.train_episodes_per_epoch = params['train_episodes_per_epoch']
+        self.test_episodes_per_epoch = params['test_episodes_per_epoch']
+        self.resolution = params['resolution']
+        self.game = params['game']
         self.actions = self.game.action_space()
-        self.frame_repeat = frame_repeat
-        self.batch_size = batch_size
-        self.episodes_to_watch = episodes_to_watch
+        self.frame_repeat = params['frame_repeat']
+        self.batch_size = params['batch_size']
+        self.episodes_to_watch = params['episodes_to_watch']
 
-        input_shape = (resolution[0], resolution[1], self.channel)
-        self.net = model(input_shape, len(self.actions))
+        input_shape = (self.resolution[0], self.resolution[1], self.channel)
 
-        state_shape = (replay_memory_size, resolution[0], resolution[1], self.channel)
-        self.memory = ReplayMemory(state_shape)
+        if model == 'fixed-dqn':
+            self.net = FixedDDQN(input_shape, len(self.actions), params['learning_rate'], params['discount_factor'])
+        else:
+            self.net = DDQN(input_shape, len(self.actions), params['learning_rate'], params['discount_factor'])
 
         self.writer = tf.summary.create_file_writer('tensorboard')
 
